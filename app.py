@@ -54,6 +54,16 @@ auth_login_model = api.model('AuthLogin', {
     'password': fields.String(required=True, description='User password'),
 })
 
+
+api.security = {'apikey': []}
+api.authorizations = {
+    'apikey': {
+        'type': 'apiKey',
+        'in': 'header',
+        'name': 'Authorization'
+    }
+}
+
 # Routes for Auth Service
 @auth_ns.route('/register')
 class AuthRegister(Resource):
