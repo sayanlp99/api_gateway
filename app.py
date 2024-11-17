@@ -1,21 +1,22 @@
 import os
 import requests
 from flask import Flask, request, jsonify
-from flask_restx import Api, Resource 
+from flask_restx import Api, Resource, fields
 from functools import wraps
 import jwt
 from dotenv import load_dotenv
 
+# Load environment variables from .env file
 load_dotenv()
 
 app = Flask(__name__)
 api = Api(app, doc='/docs', title="Booktrade API Gateway", description="API Gateway for Auth, Book, and Exchange Services")
 
 # Load environment variables
-AUTH_SERVICE_URL = os.getenv('AUTH_SERVICE_URL')
-BOOK_SERVICE_URL = os.getenv('BOOK_SERVICE_URL')
-EXCHANGE_SERVICE_URL = os.getenv('EXCHANGE_SERVICE_URL')
-JWT_SECRET = os.getenv('JWT_SECRET')
+AUTH_SERVICE_URL = os.getenv('AUTH_SERVICE_URL', 'http://localhost:3001')
+BOOK_SERVICE_URL = os.getenv('BOOK_SERVICE_URL', 'http://localhost:3002')
+EXCHANGE_SERVICE_URL = os.getenv('EXCHANGE_SERVICE_URL', 'http://localhost:3003')
+JWT_SECRET = os.getenv('JWT_SECRET', 'your_jwt_secret')
 
 # JWT Verification decorator
 def verify_jwt(f):
@@ -41,20 +42,48 @@ auth_ns = api.namespace('auth', description='Authentication Service')
 books_ns = api.namespace('books', description='Book CRUD Service')
 exchange_ns = api.namespace('exchange', description='Exchange Request Service')
 
+# Define the input models for registration and login
+auth_register_model = api.model('AuthRegister', {
+    'email': fields.String(required=True, description='User email'),
+    'password': fields.String(required=True, description='User password'),
+    'name': fields.String(required=True, description='User name'),
+})
+
+auth_login_model = api.model('AuthLogin', {
+    'email': fields.String(required=True, description='User email'),
+    'password': fields.String(required=True, description='User password'),
+})
+
 # Routes for Auth Service
-@auth_ns.route('/<path:path>')
-class AuthService(Resource):
-    def get(self, path):
-        """Forward GET requests to the Auth Service"""
-        url = f"{AUTH_SERVICE_URL}/{path}"
+@auth_ns.route('/register')
+class AuthRegister(Resource):
+    @api.expect(auth_register_model)  # Expect the auth_register_model here
+    def post(self):
+        """Register a new user"""
+        url = f"{AUTH_SERVICE_URL}/api/register"
+        response = requests.post(url, json=request.get_json(), headers=request.headers)
+        return response.json(), response.status_code
+
+
+@auth_ns.route('/login')
+class AuthLogin(Resource):
+    @api.expect(auth_login_model)  # Expect the auth_login_model here
+    def post(self):
+        """Log in and obtain a JWT"""
+        url = f"{AUTH_SERVICE_URL}/api/login"
+        response = requests.post(url, json=request.get_json(), headers=request.headers)
+        return response.json(), response.status_code
+
+
+@auth_ns.route('/profile')
+class AuthProfile(Resource):
+    @verify_jwt
+    def get(self):
+        """Retrieve user profile (JWT protected)"""
+        url = f"{AUTH_SERVICE_URL}/api/profile"
         response = requests.get(url, headers=request.headers)
         return response.json(), response.status_code
 
-    def post(self, path):
-        """Forward POST requests to the Auth Service"""
-        url = f"{AUTH_SERVICE_URL}/{path}"
-        response = requests.post(url, json=request.get_json(), headers=request.headers)
-        return response.json(), response.status_code
 
 # Routes for Book Service (protected)
 @books_ns.route('/<path:path>')
@@ -89,6 +118,7 @@ class BookServiceRoot(Resource):
         response = requests.post(url, json=request.get_json(), headers=request.headers)
         return response.json(), response.status_code
 
+
 # Routes for Exchange Service (protected)
 @exchange_ns.route('/<path:path>')
 class ExchangeService(Resource):
@@ -122,6 +152,7 @@ class ExchangeServiceRoot(Resource):
         response = requests.post(url, json=request.get_json(), headers=request.headers)
         return response.json(), response.status_code
 
+
 # Start the Flask app
 if __name__ == '__main__':
-    app.run(port=int(os.getenv('FLASK_RUN_PORT', 3000)))
+    app.run(port=3000)
