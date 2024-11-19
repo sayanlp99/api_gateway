@@ -95,38 +95,62 @@ class AuthProfile(Resource):
         return response.json(), response.status_code
 
 
+# Define the Book request model for Swagger
+book_request_model = books_ns.model('BookRequest',{
+    'title': fields.String(required=True, description='Title of the book'),
+    'author': fields.String(required=True, description='Name of the author'),
+    'genre': fields.String(required=True, description='Genre of the bool'),
+    'publishedDate': fields.String(required=True, description='Date it was published on YYYY-MM-DD'),
+    'availability': fields.Boolean(required=True, description='Availabilty Status of the Book'),
+    'userId': fields.String(required=True, description='User ID of the owner of the book')
+})
+
+book_update_model = books_ns.model('BookStatusUpdate',{
+    'availability': fields.Boolean(required=True, description='Availabilty Status of the Book')
+})
+
 # Routes for Book Service (protected)
-@books_ns.route('/<path:path>')
+@books_ns.route('/<int:book_id>')
 class BookService(Resource):
     @verify_jwt
-    def get(self, path):
-        """Forward GET requests to the Book Service (JWT protected)"""
-        url = f"{BOOK_SERVICE_URL}/{path}"
+    def get(self, book_id):
+        """Get a specific book by ID"""
+        url = f"{BOOK_SERVICE_URL}/books/{book_id}"
         response = requests.get(url, headers=request.headers)
         return response.json(), response.status_code
 
     @verify_jwt
-    def post(self, path):
-        """Forward POST requests to the Book Service (JWT protected)"""
-        url = f"{BOOK_SERVICE_URL}/{path}"
-        response = requests.post(url, json=request.get_json(), headers=request.headers)
-        return response.json(), response.status_code
+    @books_ns.expect(book_update_model)
+    def patch(self, book_id):
+        """Update the status of a specific book"""
+        url = f"{BOOK_SERVICE_URL}/books/{book_id}"
+        response = requests.patch(url, json=request.get_json(), headers=request.headers)
+        return {}, response.status_code
 
-@books_ns.route('/')
+    @verify_jwt
+    def delete(self, book_id):
+        """Delete a book by ID"""
+        url = f"{BOOK_SERVICE_URL}/books/{book_id}"
+        response = requests.delete(url, headers=request.headers)
+        return {}, response.status_code
+
+
+@books_ns.route('')
 class BookServiceRoot(Resource):
     @verify_jwt
     def get(self):
-        """Get all books (JWT protected)"""
-        url = f"{BOOK_SERVICE_URL}"
+        """Get all books"""
+        url = f"{BOOK_SERVICE_URL}/books"
         response = requests.get(url, headers=request.headers)
         return response.json(), response.status_code
 
     @verify_jwt
+    @books_ns.expect(book_request_model)  # Expect book details in the body
     def post(self):
-        """Add a new book (JWT protected)"""
-        url = f"{BOOK_SERVICE_URL}"
+        """Add a new book"""
+        url = f"{BOOK_SERVICE_URL}/books"
         response = requests.post(url, json=request.get_json(), headers=request.headers)
-        return response.json(), response.status_code
+        return {}, response.status_code
 
 # Define the Exchange request model for Swagger
 exchange_request_model = exchange_ns.model('ExchangeRequest', {
@@ -143,7 +167,7 @@ exchange_status_update_model = exchange_ns.model('ExchangeStatusUpdate', {
 })
 
 # Routes for Exchange Service (protected)
-@exchange_ns.route('/api/exchange-requests')
+@exchange_ns.route('')
 class CreateExchangeRequest(Resource):
     @exchange_ns.expect(exchange_request_model, validate=True)
     @verify_jwt
@@ -154,7 +178,7 @@ class CreateExchangeRequest(Resource):
         return response.json(), response.status_code
 
 
-@exchange_ns.route('/api/exchange-requests/<string:user_id>')
+@exchange_ns.route('/user/<string:user_id>')
 class ListExchangeRequestByUser(Resource):
     @verify_jwt
     def get(self, user_id):
@@ -164,7 +188,7 @@ class ListExchangeRequestByUser(Resource):
         return response.json(), response.status_code
 
 
-@exchange_ns.route('/api/exchange-requests/<int:exchange_id>')
+@exchange_ns.route('/<int:exchange_id>')
 class EditExchangeRequest(Resource):
     @exchange_ns.expect(exchange_status_update_model, validate=True)
     @verify_jwt
