@@ -128,39 +128,59 @@ class BookServiceRoot(Resource):
         response = requests.post(url, json=request.get_json(), headers=request.headers)
         return response.json(), response.status_code
 
+# Define the Exchange request model for Swagger
+exchange_request_model = exchange_ns.model('ExchangeRequest', {
+    'lender_id': fields.String(required=True, description='ID of the lender'),
+    'borrower_id': fields.String(required=True, description='ID of the borrower'),
+    'book_id': fields.String(required=True, description='ID of the book involved in the exchange'),
+    'exchange_id': fields.Integer(required=True, description='Unique ID for the exchange request'),
+    'status': fields.String(required=True, description='Status of the exchange request', enum=['pending', 'processing', 'completed', 'cancelled'])
+})
+
+# Define the model for updating the status
+exchange_status_update_model = exchange_ns.model('ExchangeStatusUpdate', {
+    'status': fields.String(required=True, description='New status for the exchange request', enum=['pending', 'processing', 'completed', 'cancelled'])
+})
 
 # Routes for Exchange Service (protected)
-@exchange_ns.route('/<path:path>')
-class ExchangeService(Resource):
-    @verify_jwt
-    def get(self, path):
-        """Forward GET requests to the Exchange Service (JWT protected)"""
-        url = f"{EXCHANGE_SERVICE_URL}/{path}"
-        response = requests.get(url, headers=request.headers)
-        return response.json(), response.status_code
-
-    @verify_jwt
-    def post(self, path):
-        """Forward POST requests to the Exchange Service (JWT protected)"""
-        url = f"{EXCHANGE_SERVICE_URL}/{path}"
-        response = requests.post(url, json=request.get_json(), headers=request.headers)
-        return response.json(), response.status_code
-
-@exchange_ns.route('/')
-class ExchangeServiceRoot(Resource):
-    @verify_jwt
-    def get(self):
-        """Get all exchange requests (JWT protected)"""
-        url = f"{EXCHANGE_SERVICE_URL}"
-        response = requests.get(url, headers=request.headers)
-        return response.json(), response.status_code
-
+@exchange_ns.route('/api/exchange-requests')
+class CreateExchangeRequest(Resource):
+    @exchange_ns.expect(exchange_request_model, validate=True)
     @verify_jwt
     def post(self):
         """Create a new exchange request (JWT protected)"""
-        url = f"{EXCHANGE_SERVICE_URL}"
+        url = f"{EXCHANGE_SERVICE_URL}/api/exchange-requests"
         response = requests.post(url, json=request.get_json(), headers=request.headers)
         return response.json(), response.status_code
+
+
+@exchange_ns.route('/api/exchange-requests/<string:user_id>')
+class ListExchangeRequestByUser(Resource):
+    @verify_jwt
+    def get(self, user_id):
+        """List exchange requests for a specific user (JWT protected)"""
+        url = f"{EXCHANGE_SERVICE_URL}/api/exchange-requests/{user_id}"
+        response = requests.get(url, headers=request.headers)
+        return response.json(), response.status_code
+
+
+@exchange_ns.route('/api/exchange-requests/<int:exchange_id>')
+class EditExchangeRequest(Resource):
+    @exchange_ns.expect(exchange_status_update_model, validate=True)
+    @verify_jwt
+    def put(self, exchange_id):
+        """Edit an exchange request by ID (JWT protected)"""
+        url = f"{EXCHANGE_SERVICE_URL}/api/exchange-requests/{exchange_id}"
+        response = requests.put(url, json=request.get_json(), headers=request.headers)
+        return response.json(), response.status_code
+
+    @verify_jwt
+    def delete(self, exchange_id):
+        """Delete an exchange request by ID (JWT protected)"""
+        url = f"{EXCHANGE_SERVICE_URL}/api/exchange-requests/{exchange_id}"
+        response = requests.delete(url, headers=request.headers)
+        return response.json(), response.status_code
+
 
 
 # Start the Flask app
